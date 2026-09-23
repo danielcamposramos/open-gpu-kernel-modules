@@ -592,6 +592,38 @@ void parse861ExtDetailedTiming(NvU8 *pEdidExt,
     }
 }
 
+CODE_SEGMENT(PAGE_DD_CODE)
+static void nameShortTiming(NvU32 vic, NVT_TIMING *pT)
+{
+    NVT_SNPRINTF((char *)pT->etc.name, sizeof(pT->etc.name),
+                 "CTA-861G:#%3d:%5dx%4dx%3d.%03dHz/%s", (int)vic,
+                 (int)pT->HVisible,
+                 (int)((pT->interlaced ? 2 : 1)*pT->VVisible),
+                 (int)pT->etc.rrx1k/1000, (int)pT->etc.rrx1k%1000,
+                 (pT->interlaced ? "I":"P"));
+    pT->etc.name[sizeof(pT->etc.name)-1] = '\0';
+}
+
+CODE_SEGMENT(PAGE_DD_CODE)
+static NvBool assignShortTiming(NVT_CTA861_ORIGIN flag,
+                                NVT_EDID_INFO *pInfo,
+                                NVT_DISPLAYID_2_0_INFO *pDisplayID20,
+                                NVT_TIMING *pT)
+{
+    if (flag == FROM_CTA861_EXTENSION || flag == FROM_DISPLAYID_13_DATA_BLOCK)
+    {
+        return assignNextAvailableTiming(pInfo, pT);
+    }
+
+    if (flag == FROM_DISPLAYID_20_DATA_BLOCK)
+    {
+        pT->etc.flag |= NVT_FLAG_DISPLAYID_2_0_TIMING;
+        return assignNextAvailableDisplayId20Timing(pDisplayID20, pT);
+    }
+
+    return NV_TRUE;
+}
+
 // parse the 861B short timing descriptor
 CODE_SEGMENT(PAGE_DD_CODE)
 void parse861bShortTiming(NVT_EDID_CEA861_INFO *pExt861,
@@ -655,13 +687,7 @@ void parse861bShortTiming(NVT_EDID_CEA861_INFO *pExt861,
         {
             NVT_SET_NATIVE_TIMING_FLAG(newTiming.etc.status);
         }
-        NVT_SNPRINTF((char *)newTiming.etc.name, sizeof(newTiming.etc.name),
-                     "CTA-861G:#%3d:%5dx%4dx%3d.%03dHz/%s", (int)vic,
-                     (int)newTiming.HVisible,
-                     (int)((newTiming.interlaced ? 2 : 1)*newTiming.VVisible),
-                     (int)newTiming.etc.rrx1k/1000, (int)newTiming.etc.rrx1k%1000,
-                     (newTiming.interlaced ? "I":"P"));
-        newTiming.etc.name[sizeof(newTiming.etc.name)-1] = '\0';
+        nameShortTiming(vic, &newTiming);
 
         // if yuv420 is supported in the video SVDs, it is indicated by CMDB bitmap
         bytePos = i / (8 * sizeof(NvU8));
@@ -687,18 +713,27 @@ void parse861bShortTiming(NVT_EDID_CEA861_INFO *pExt861,
                                        pHfvs->dc_48bit_420);
         }
 
-        if (flag == FROM_CTA861_EXTENSION || flag == FROM_DISPLAYID_13_DATA_BLOCK)
+        if (!assignShortTiming(flag, pInfo, pDisplayID20, &newTiming))
         {
-            if (!assignNextAvailableTiming(pInfo, &newTiming))
-            {
-                break;
-            }
+            break;
         }
-        else if (flag == FROM_DISPLAYID_20_DATA_BLOCK)
-        {
-           newTiming.etc.flag |= NVT_FLAG_DISPLAYID_2_0_TIMING;
 
-           if (!assignNextAvailableDisplayId20Timing(pDisplayID20, &newTiming))
+        // CTA-861 defines every 1000/1001-rate format (59.94, 29.97, 23.976 Hz
+        // and their multiples) at the integer rate as well, under the same VIC.
+        // EIA861B[] stores only the 1000/1001 rate, so also add the integer-rate
+        // twin, as the DRM core does in add_alternate_cea_modes().
+        if ((newTiming.etc.rrx1k % 1000) != 0)
+        {
+            newTiming.etc.rrx1k = newTiming.etc.rr * 1000;
+            newTiming.pclk      = RRx1kToPclk(&newTiming);
+            newTiming.pclk1khz  = (newTiming.pclk << 3) + (newTiming.pclk << 1); // *10
+
+            // the sink's native marking stays on the table rate
+            newTiming.etc.status &= ~NVT_STATUS_TIMING_NATIVE_FLAG_MASK;
+
+            nameShortTiming(vic, &newTiming);
+
+            if (!assignShortTiming(flag, pInfo, pDisplayID20, &newTiming))
             {
                 break;
             }
