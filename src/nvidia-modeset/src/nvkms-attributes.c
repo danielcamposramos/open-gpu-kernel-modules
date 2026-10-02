@@ -742,13 +742,14 @@ static NvBool GetColorBpcValidValues(
 
     /* If new enum values are added, update the u.bits.ints assignment. */
     ct_assert(NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_MAX ==
-                NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12);
+                NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_16);
 
     pValidValues->u.bits.ints =
         NVBIT(NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_6)  |
         NVBIT(NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_8)  |
         NVBIT(NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_10) |
-        NVBIT(NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12);
+        NVBIT(NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12) |
+        NVBIT(NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_16);
 
     return TRUE;
 }

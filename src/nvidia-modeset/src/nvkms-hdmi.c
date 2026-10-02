@@ -307,6 +307,21 @@ NvBool nvDpyIsHdmiDepth36Evo(const NVDpyEvoRec *pDpyEvo)
 }
 
 /*!
+ * Returns whether the GPU and the display both support HDMI depth 48 (16 BPC).
+ */
+NvBool nvDpyIsHdmiDepth48Evo(const NVDpyEvoRec *pDpyEvo)
+{
+    const NVDevEvoRec *pDevEvo = pDpyEvo->pDispEvo->pDevEvo;
+    NvU32 hdmiCap = GetHDMISupportCap(pDpyEvo);
+
+    return nvkms_hdmi_deepcolor() &&
+           (nvkms_max_output_color_bpc() >= 16) &&
+           nvDpyIsHdmiEvo(pDpyEvo) &&
+           pDevEvo->hal->caps.supportsHDMI16BPC &&
+           (hdmiCap & CAP_HDMI_SUPPORT_MONITOR_48_BPP);
+}
+
+/*!
  * Updates the display's HDMI 2.0 capabilities to the RM.
  */
 void nvSendHdmiCapsToRm(NVDpyEvoPtr pDpyEvo)
@@ -423,7 +438,11 @@ static void SendHdmiGcp(const NVDispEvoRec *pDispEvo,
     NvU8 packingPhase = NVT_HDMI_PIXELPACKING_PHASE4;
 
     if (pHeadState->procAmp.colorFormat != NVT_COLOR_FORMAT_YCbCr422) {
-        if (pHeadState->pixelDepth == NVKMS_PIXEL_DEPTH_36_444) {
+        if (pHeadState->pixelDepth == NVKMS_PIXEL_DEPTH_48_444) {
+            /* A 48-bpp group holds one pixel, so the packing phase is 0. */
+            colorDepth = NVT_HDMI_COLOR_DEPTH_48;
+            packingPhase = NVT_HDMI_PIXELPACKING_PHASE4;
+        } else if (pHeadState->pixelDepth == NVKMS_PIXEL_DEPTH_36_444) {
             colorDepth = NVT_HDMI_COLOR_DEPTH_36;
             {
                 NvU32 hActive = nvEvoVisibleWidth(&pHeadState->timings);
@@ -2304,7 +2323,7 @@ static NvU32 GetMaxPossibleTmdsPixelClockKHz(
     const NVDpyEvoRec *pDpyEvo,
     const NVDpyAttributeColor *pDpyColor)
 {
-    ct_assert(NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12 ==
+    ct_assert(NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_16 ==
               NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_MAX);
 
     nvAssert(nvDpyIsHdmiEvo(pDpyEvo));
@@ -2318,6 +2337,16 @@ static NvU32 GetMaxPossibleTmdsPixelClockKHz(
     /* For YCbCr422, return maximum pixel clock despite BPC. */
     if (pDpyColor->format == NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_FORMAT_YCbCr422) {
         return pDpyEvo->maxSingleLinkPixelClockKHz;
+    }
+
+    if (pDpyColor->bpc == NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_16) {
+        /* The TMDS clock at 48 bpp is twice the pixel clock. */
+        const NvU32 adjustedMaxPixelClock =
+            pDpyEvo->maxSingleLinkPixelClockKHz / 2U;
+
+        nvAssert(nvDpyIsHdmiDepth48Evo(pDpyEvo));
+
+        return adjustedMaxPixelClock;
     }
 
     if (pDpyColor->bpc == NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12) {

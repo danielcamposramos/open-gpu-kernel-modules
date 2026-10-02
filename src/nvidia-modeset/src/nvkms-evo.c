@@ -798,6 +798,7 @@ static NvBool HeadStateIsHdmiTmdsDeepColor(const NVDispHeadStateEvoRec *pHeadSta
                 return FALSE;
             case NVKMS_PIXEL_DEPTH_30_444:
             case NVKMS_PIXEL_DEPTH_36_444:
+            case NVKMS_PIXEL_DEPTH_48_444:
                 return TRUE;
         }
     }
@@ -2675,6 +2676,14 @@ static enum NvKmsDpyAttributeColorBpcValue ChooseColorBpc(
         return NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_UNKNOWN;
     }
 
+    if (nvDpyIsHdmiEvo(pDpyEvo) &&
+        !nvDpyIsHdmiDepth36Evo(pDpyEvo) &&
+        (result == NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12)) {
+        /* A sink that declares DC_48 but not DC_36: 12 bpc is not offered. */
+        nvAssert(requested != NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_UNKNOWN);
+        return NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_UNKNOWN;
+    }
+
     return result;
 }
 
@@ -3164,10 +3173,12 @@ void nvChooseDitheringEvo(
                 currDithering.depth =
                     NV_KMS_DPY_ATTRIBUTE_CURRENT_DITHERING_DEPTH_10_BITS;
                 break;
+            case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_16:
             case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12:
                 nvEvoLogDevDebug(pConnectorEvo->pDispEvo->pDevEvo,
                                  EVO_LOG_WARN,
-                                 "Dithering is not supported for 12 BPC");
+                                 "Dithering is not supported for %u BPC",
+                                 (NvU32)bpc);
                 currDithering.enabled = FALSE;
                 break;
             default:
@@ -6909,6 +6920,14 @@ static NvBool IsColorBpcSupported(
         return FALSE;
     }
 
+    /* Each Deep Colour depth needs its own EDID bit: DC_48 does not imply DC_36. */
+    if (nvDpyIsHdmiEvo(pDpyEvo) &&
+        (!nvDpyIsHdmiDepth36Evo(pDpyEvo)) &&
+        (bpc == NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12)) {
+
+        return FALSE;
+    }
+
     switch (format) {
         case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_FORMAT_RGB:
             return (bpc <= pSupportedColorFormats->rgb444.maxBpc) &&
@@ -6932,6 +6951,15 @@ static NvBool DowngradeColorBpc(
     NVDpyAttributeColor *pDpyColor)
 {
     switch (pDpyColor->bpc) {
+        case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_16:
+            if (IsColorBpcSupported(pDpyEvo,
+                                    pSupportedColorFormats,
+                                    pDpyColor->format,
+                                    NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12)) {
+                pDpyColor->bpc = NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12;
+                break;
+            }
+            /* fall through */
         case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12:
             if (IsColorBpcSupported(pDpyEvo,
                                     pSupportedColorFormats,
@@ -9600,6 +9628,8 @@ enum nvKmsPixelDepth nvEvoDpyColorToPixelDepth(
         case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_FORMAT_YCbCr444:
         case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_FORMAT_YCbCr420:
             switch (pDpyColor->bpc) {
+                case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_16:
+                    return NVKMS_PIXEL_DEPTH_48_444;
                 case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12:
                     return NVKMS_PIXEL_DEPTH_36_444;
                 case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_10:
@@ -9614,6 +9644,10 @@ enum nvKmsPixelDepth nvEvoDpyColorToPixelDepth(
         case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_FORMAT_YCbCr422:
             nvAssert(pDpyColor->bpc != NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_6);
             switch (pDpyColor->bpc) {
+                case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_16:
+                    /* 16 BPC is only chosen for RGB and YCbCr444. */
+                    nvAssert(!"Unexpected 16 BPC with YCbCr422");
+                    /* fall through */
                 case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12:
                     return NVKMS_PIXEL_DEPTH_24_422;
                 case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_10:

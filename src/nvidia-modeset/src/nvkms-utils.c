@@ -506,6 +506,8 @@ NvU8 nvPixelDepthToBitsPerComponent(enum nvKmsPixelDepth pixelDepth)
     case NVKMS_PIXEL_DEPTH_36_444:
     case NVKMS_PIXEL_DEPTH_24_422:
         return 12;
+    case NVKMS_PIXEL_DEPTH_48_444:
+        return 16;
     }
     nvAssert(!"Unknown NVKMS_PIXEL_DEPTH");
     return 0;

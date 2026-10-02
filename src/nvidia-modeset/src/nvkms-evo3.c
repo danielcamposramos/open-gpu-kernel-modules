@@ -2339,6 +2339,8 @@ NvU32 nvEvoGetPixelDepthC3(const enum nvKmsPixelDepth pixelDepth)
         return NVC37D_HEAD_SET_CONTROL_OUTPUT_RESOURCE_PIXEL_DEPTH_BPP_30_444;
     case NVKMS_PIXEL_DEPTH_36_444:
         return NVC37D_HEAD_SET_CONTROL_OUTPUT_RESOURCE_PIXEL_DEPTH_BPP_36_444;
+    case NVKMS_PIXEL_DEPTH_48_444:
+        return NVC37D_HEAD_SET_CONTROL_OUTPUT_RESOURCE_PIXEL_DEPTH_BPP_48_444;
     case NVKMS_PIXEL_DEPTH_16_422:
         return NVC37D_HEAD_SET_CONTROL_OUTPUT_RESOURCE_PIXEL_DEPTH_BPP_16_422;
     case NVKMS_PIXEL_DEPTH_20_422:
@@ -7948,6 +7950,7 @@ NVEvoHAL nvEvoC5 = {
         FALSE,                                    /* supportsVblankSyncObjects */
         TRUE,                                     /* supportsMergeMode */
         FALSE,                                    /* supportsHDMI10BPC */
+        TRUE,                                     /* supportsHDMI16BPC */
         FALSE,                                    /* supportsDPAudio192KHz */
         FALSE,                                    /* supportsYCbCr422OverHDMIFRL */
         FALSE,                                    /* supportsColorPassthrough */
@@ -8033,6 +8036,7 @@ NVEvoHAL nvEvoC6 = {
         TRUE,                                     /* supportsVblankSyncObjects */
         TRUE,                                     /* supportsMergeMode */
         TRUE,                                     /* supportsHDMI10BPC */
+        TRUE,                                     /* supportsHDMI16BPC */
         FALSE,                                    /* supportsDPAudio192KHz */
         FALSE,                                    /* supportsYCbCr422OverHDMIFRL */
         FALSE,                                    /* supportsColorPassthrough */
@@ -8118,6 +8122,7 @@ NVEvoHAL nvEvoC8 = {
         TRUE,                                     /* supportsVblankSyncObjects */
         TRUE,                                     /* supportsMergeMode */
         TRUE,                                     /* supportsHDMI10BPC */
+        TRUE,                                     /* supportsHDMI16BPC */
         FALSE,                                    /* supportsDPAudio192KHz */
         TRUE,                                     /* supportsYCbCr422OverHDMIFRL */
         TRUE,                                     /* supportsColorPassthrough */

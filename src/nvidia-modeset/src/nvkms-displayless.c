@@ -856,6 +856,7 @@ NVEvoHAL nvDisplayless = {
         FALSE,                                          /* supportsVblankSyncObjects */
         FALSE,                                          /* supportsMergeMode */
         FALSE,                                          /* supportsHDMI10BPC */
+        FALSE,                                          /* supportsHDMI16BPC */
         FALSE,                                          /* supportsDPAudio192KHz */
         FALSE,                                          /* supportsYCbCr422OverHDMIFRL */
         FALSE,                                          /* supportsColorPassthrough */

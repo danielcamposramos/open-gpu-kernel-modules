@@ -3784,7 +3784,10 @@ NvKmsDpyOutputColorFormatInfo nvDpyGetOutputColorFormatInfo(
                 }
             }
         } else {
-            if (nvDpyIsHdmiDepth36Evo(pDpyEvo)) {
+            if (nvDpyIsHdmiDepth48Evo(pDpyEvo)) {
+                colorFormatsInfo.rgb444.maxBpc =
+                    NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_16;
+            } else if (nvDpyIsHdmiDepth36Evo(pDpyEvo)) {
                 colorFormatsInfo.rgb444.maxBpc =
                     NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12;
             } else if (nvDpyIsHdmiDepth30Evo(pDpyEvo)) {
@@ -3798,7 +3801,11 @@ NvKmsDpyOutputColorFormatInfo nvDpyGetOutputColorFormatInfo(
                 NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_8;
 
             if (nvDpyIsHdmiEvo(pDpyEvo)) {
-                if (nvDpyIsHdmiDepth36Evo(pDpyEvo)) {
+                if (nvDpyIsHdmiDepth48Evo(pDpyEvo) &&
+                    pDpyEvo->parsedEdid.info.hdmiLlcInfo.dc_y444) {
+                    colorFormatsInfo.yuv444.maxBpc =
+                        NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_16;
+                } else if (nvDpyIsHdmiDepth36Evo(pDpyEvo)) {
                     colorFormatsInfo.yuv444.maxBpc =
                         NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12;
                 } else if (nvDpyIsHdmiDepth30Evo(pDpyEvo)) {

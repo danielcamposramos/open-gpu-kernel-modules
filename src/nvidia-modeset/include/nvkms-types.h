@@ -1378,6 +1378,7 @@ enum nvKmsPixelDepth {
     NVKMS_PIXEL_DEPTH_24_444,
     NVKMS_PIXEL_DEPTH_30_444,
     NVKMS_PIXEL_DEPTH_36_444,
+    NVKMS_PIXEL_DEPTH_48_444,
     NVKMS_PIXEL_DEPTH_16_422,
     NVKMS_PIXEL_DEPTH_20_422,
     NVKMS_PIXEL_DEPTH_24_422,
@@ -3348,6 +3349,7 @@ typedef const struct _nv_evo_hal {
         NvU32 supportsVblankSyncObjects                 :1;
         NvU32 supportsMergeMode                         :1;
         NvU32 supportsHDMI10BPC                         :1;
+        NvU32 supportsHDMI16BPC                         :1;
         NvU32 supportsDPAudio192KHz                     :1;
         NvU32 supportsYCbCr422OverHDMIFRL               :1;
         NvU32 supportsColorPassthrough                  :1;

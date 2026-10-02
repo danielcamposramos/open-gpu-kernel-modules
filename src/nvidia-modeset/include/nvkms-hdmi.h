@@ -49,6 +49,7 @@ void nvLogEdidCea861InfoEvo(NVDpyEvoPtr pDpyEvo,
 NvBool nvDpyIsHdmiEvo(const NVDpyEvoRec *pDpyEvo);
 NvBool nvDpyIsHdmiDepth30Evo(const NVDpyEvoRec *pDpyEvo);
 NvBool nvDpyIsHdmiDepth36Evo(const NVDpyEvoRec *pDpyEvo);
+NvBool nvDpyIsHdmiDepth48Evo(const NVDpyEvoRec *pDpyEvo);
 
 NvBool nvHdmi204k60HzRGB444Allowed(const NVDpyEvoRec *pDpyEvo,
                                    const struct NvKmsModeValidationParams *pParams,

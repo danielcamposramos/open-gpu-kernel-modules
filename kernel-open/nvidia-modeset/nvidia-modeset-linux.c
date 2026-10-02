@@ -92,8 +92,10 @@ module_param_named(disable_vrr_memclk_switch, disable_vrr_memclk_switch, bool, 0
 static bool hdmi_deepcolor = true;
 module_param_named(hdmi_deepcolor, hdmi_deepcolor, bool, 0444);
 
-static unsigned int max_output_color_depth = 12;
+static unsigned int max_output_color_depth = 16;
 module_param_named(max_output_color_depth, max_output_color_depth, uint, 0444);
+MODULE_PARM_DESC(max_output_color_depth,
+                 "Maximum output colour depth in bits per component: 6, 8, 10, 12 or 16 (default 16); other values are clamped down");
 
 static bool opportunistic_display_sync = true;
 module_param_named(opportunistic_display_sync, opportunistic_display_sync, bool, 0444);
@@ -252,18 +254,31 @@ NvBool nvkms_hdmi_deepcolor(void)
 
 NvU32 nvkms_max_output_color_bpc(void)
 {
-    switch (max_output_color_depth) {
-        case 6:
-            return 6;
-        case 8:
-            return 8;
-        case 12:
-            return 12;
-        case 10:
-        case 0:
-        default:
-            return 10;
+    static const NvU32 valid[] = { 6, 8, 10, 12, 16 };
+    static bool warned;
+    NvU32 bpc = 6;
+    int i;
+
+    /* 0 keeps its old meaning: 10 */
+    if (max_output_color_depth == 0) {
+        return 10;
     }
+
+    /* Anything else that is not a valid depth is clamped down, and logged. */
+    for (i = 0; i < ARRAY_SIZE(valid); i++) {
+        if (valid[i] <= max_output_color_depth) {
+            bpc = valid[i];
+        }
+    }
+
+    if ((bpc != max_output_color_depth) && !warned) {
+        warned = true;
+        printk(KERN_WARNING NVKMS_LOG_PREFIX
+               "max_output_color_depth=%u is not 6, 8, 10, 12 or 16; using %u\n",
+               max_output_color_depth, bpc);
+    }
+
+    return bpc;
 }
 
 NvBool nvkms_opportunistic_display_sync(void)

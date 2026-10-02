@@ -2900,6 +2900,7 @@ NVEvoHAL nvEvoC9 = {
         TRUE,                                     /* supportsVblankSyncObjects */
         FALSE,                                    /* supportsMergeMode */
         TRUE,                                     /* supportsHDMI10BPC */
+        TRUE,                                     /* supportsHDMI16BPC */
         TRUE,                                     /* supportsDPAudio192KHz */
         TRUE,                                     /* supportsYCbCr422OverHDMIFRL */
         FALSE,                                    /* supportsColorPassthrough */
@@ -2985,6 +2986,7 @@ NVEvoHAL nvEvoCA = {
         TRUE,                                     /* supportsVblankSyncObjects */
         FALSE,                                    /* supportsMergeMode */
         TRUE,                                     /* supportsHDMI10BPC */
+        TRUE,                                     /* supportsHDMI16BPC */
         TRUE,                                     /* supportsDPAudio192KHz */
         TRUE,                                     /* supportsYCbCr422OverHDMIFRL */
         FALSE,                                    /* supportsColorPassthrough */

@@ -6089,6 +6089,7 @@ PixelDepthString(enum nvKmsPixelDepth pixelDepth)
     case NVKMS_PIXEL_DEPTH_24_444: return "24";
     case NVKMS_PIXEL_DEPTH_30_444: return "30";
     case NVKMS_PIXEL_DEPTH_36_444: return "36";
+    case NVKMS_PIXEL_DEPTH_48_444: return "48";
     case NVKMS_PIXEL_DEPTH_16_422: return "16";
     case NVKMS_PIXEL_DEPTH_20_422: return "20";
     case NVKMS_PIXEL_DEPTH_24_422: return "24";
@@ -6109,6 +6110,7 @@ PixelFormatString(enum nvKmsPixelDepth pixelDepth,
         case NVKMS_PIXEL_DEPTH_24_444:
         case NVKMS_PIXEL_DEPTH_30_444:
         case NVKMS_PIXEL_DEPTH_36_444:
+        case NVKMS_PIXEL_DEPTH_48_444:
             return "4:4:4";
         case NVKMS_PIXEL_DEPTH_16_422:
         case NVKMS_PIXEL_DEPTH_20_422:
