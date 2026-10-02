@@ -119,6 +119,12 @@ struct NvKmsKapiDisplayModeTimings {
 struct NvKmsKapiDisplayMode {
     struct NvKmsKapiDisplayModeTimings timings;
     char name[NVKMS_KAPI_MODE_NAME_LEN];
+    /*
+     * The timings are an HDMI 1.4 3D frame holding both eyes (frame packing,
+     * side by side full), which the sink declares in its HDMI VSDB rather
+     * than as an EDID timing.
+     */
+    NvBool stereoDoubled;
 };
 
 #define NVKMS_KAPI_LAYER_MAX 8

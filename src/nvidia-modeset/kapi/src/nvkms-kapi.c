@@ -2529,6 +2529,21 @@ static void InitNvKmsModeValidationParams(
     params->overrides = NVKMS_MODE_VALIDATION_NO_RRX1K_CHECK;
 }
 
+/*
+ * An HDMI 3D frame holding both eyes is not an EDID timing, and its line and
+ * frame rates can sit outside the EDID's range limits, which describe 2D
+ * timings; the sink declares the 3D format in its HDMI VSDB.
+ */
+static void ApplyStereoDoubledOverrides(const struct NvKmsKapiDisplayMode *mode,
+                                        struct NvKmsModeValidationParams *params)
+{
+    if (mode->stereoDoubled) {
+        params->overrides |= NVKMS_MODE_VALIDATION_ALLOW_NON_EDID_MODES |
+                             NVKMS_MODE_VALIDATION_NO_HORIZ_SYNC_CHECK |
+                             NVKMS_MODE_VALIDATION_NO_VERT_REFRESH_CHECK;
+    }
+}
+
 static int GetDisplayMode
 (
     struct NvKmsKapiDevice *device,
@@ -2642,6 +2657,7 @@ static NvBool ValidateDisplayMode
 
     InitNvKmsModeValidationParams(device,
                                   &paramsValidate.request.modeValidation);
+    ApplyStereoDoubledOverrides(mode, &paramsValidate.request.modeValidation);
 
 
     NvKmsKapiDisplayModeToKapi(mode, &paramsValidate.request.mode);
@@ -3369,6 +3385,8 @@ static NvBool NvKmsKapiRequestedModeSetConfigToKms(
 
         InitNvKmsModeValidationParams(device,
                                       &paramsHead->modeValidationParams);
+        ApplyStereoDoubledOverrides(&headModeSetConfig->mode,
+                                  &paramsHead->modeValidationParams);
 
         for (i = 0; i < headModeSetConfig->numDisplays; i++) {
             paramsHead->dpyIdList = nvAddDpyIdToDpyIdList(

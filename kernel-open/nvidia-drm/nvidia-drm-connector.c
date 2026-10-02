@@ -680,11 +680,15 @@ static int nv_hdmi_vsdb_stereo_modes(struct drm_connector *connector,
             if (!(mask & (1 << i)))
                 continue;
 
-            /* add_3d_struct_modes(): only structures 0/6/8 have DRM flags */
+            /* as add_3d_struct_modes(): structures 0, 3, 6 and 8 */
             if (structure_all & (1 << 0))
                 modes += nv_stereo_add_vic_index(
                              connector, vics, vics_len, (NvU8)i,
                              DRM_MODE_FLAG_3D_FRAME_PACKING);
+            if (structure_all & (1 << 3))
+                modes += nv_stereo_add_vic_index(
+                             connector, vics, vics_len, (NvU8)i,
+                             DRM_MODE_FLAG_3D_SIDE_BY_SIDE_FULL);
             if (structure_all & (1 << 6))
                 modes += nv_stereo_add_vic_index(
                              connector, vics, vics_len, (NvU8)i,
@@ -714,6 +718,9 @@ static int nv_hdmi_vsdb_stereo_modes(struct drm_connector *connector,
         switch (db[8 + offset + i] & 0x0f) {
         case 0:
             stereo_flag = DRM_MODE_FLAG_3D_FRAME_PACKING;
+            break;
+        case 3:
+            stereo_flag = DRM_MODE_FLAG_3D_SIDE_BY_SIDE_FULL;
             break;
         case 6:
             stereo_flag = DRM_MODE_FLAG_3D_TOP_AND_BOTTOM;
@@ -1174,9 +1181,9 @@ nv_drm_connector_new(struct drm_device *dev,
      * Sony KDL-46HX855 into 3D with picture (runs + client:
      * github.com/danielcamposramos/sony-bravia-linux tools/stereo-modeset/).
      *
-     * Not included: frame packing needs doubled scanout timing inside
-     * NVKMS (what AMD's DC calls CRTC_STEREO_DOUBLE) -- the FP modes will
-     * *list* but do not expect them to display correctly yet.
+     * Frame packing is sent as the whole frame-packed frame (both eyes and
+     * the active space, at twice the pixel clock), which the client draws
+     * into one buffer, as DRM defines it (drm_mode_to_nvkms_display_mode).
      */
     if (nv_connector->type == NVKMS_CONNECTOR_TYPE_HDMI) {
         nv_connector->base.stereo_allowed = true;

@@ -30,6 +30,7 @@
 
 #include <drm/drm_plane.h>
 #include <drm/drm_modes.h>
+#include <linux/math64.h>
 #include <uapi/drm/drm_fourcc.h>
 
 #include "nvidia-drm-priv.h"
@@ -182,6 +183,39 @@ void drm_mode_to_nvkms_display_mode(const struct drm_display_mode *src,
     dst->timings.vSyncStart = src->vsync_start;
     dst->timings.vSyncEnd   = src->vsync_end;
     dst->timings.vTotal     = src->vtotal;
+
+    /*
+     * HDMI 1.4 layouts holding both eyes in one frame, as
+     * drm_mode_set_crtcinfo() times them with CRTC_STEREO_DOUBLE; the mode is
+     * one eye and the scanout buffer is the whole frame.
+     *
+     * Frame packing: the left eye, the mode's vertical blanking (the active
+     * space) and the right eye, at twice the pixel clock.
+     *
+     * Side by side (full): both eyes at full width, the horizontal blanking
+     * kept, the pixel clock grown with the total width.
+     */
+    dst->stereoDoubled = NV_FALSE;
+    switch (src->flags & DRM_MODE_FLAG_3D_MASK) {
+    case DRM_MODE_FLAG_3D_FRAME_PACKING:
+        dst->timings.pixelClockHz *= 2;
+        dst->timings.vVisible     += src->vtotal;
+        dst->timings.vSyncStart   += src->vtotal;
+        dst->timings.vSyncEnd     += src->vtotal;
+        dst->timings.vTotal       += src->vtotal;
+        dst->stereoDoubled = NV_TRUE;
+        break;
+    case DRM_MODE_FLAG_3D_SIDE_BY_SIDE_FULL:
+        dst->timings.pixelClockHz =
+            (NvU32)div_u64((u64)dst->timings.pixelClockHz *
+                           (src->htotal + src->hdisplay), src->htotal);
+        dst->timings.hVisible     += src->hdisplay;
+        dst->timings.hSyncStart   += src->hdisplay;
+        dst->timings.hSyncEnd     += src->hdisplay;
+        dst->timings.hTotal       += src->hdisplay;
+        dst->stereoDoubled = NV_TRUE;
+        break;
+    }
 
     if (src->flags & DRM_MODE_FLAG_INTERLACE) {
         dst->timings.flags.interlaced = NV_TRUE;
