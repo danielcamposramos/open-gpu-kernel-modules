@@ -949,6 +949,49 @@ static const NvU32 __nv_drm_connector_supported_colorspaces =
 #endif
 
 #if defined(NV_DRM_CONNECTOR_ATTACH_HDR_OUTPUT_METADATA_PROPERTY_PRESENT)
+/*
+ * The HDMI 1.4 vendor-specific InfoFrame for a 3D mode, in NVKMS's payload
+ * form (the IEEE OUI, least significant byte first, then the body without its
+ * header): HDMI_Video_Format 3D and 3D_Structure (frame packing 0, side by side
+ * full 3, top and bottom 6, side by side half 8), with a zero 3D_Ext_Data byte
+ * for side by side half and for top and bottom, as the DRM core's InfoFrame
+ * helper sends them (a Sony KDL-46HX855 ignores a top-and-bottom announcement
+ * without it). Returns the payload size, 0 for a 2D mode.
+ */
+static NvU8 nv_drm_stereo_vsif_payload(const struct drm_display_mode *mode,
+                                       NvU8 *payload)
+{
+    NvU8 structure;
+
+    switch (mode->flags & DRM_MODE_FLAG_3D_MASK) {
+    case DRM_MODE_FLAG_3D_FRAME_PACKING:
+        structure = 0x0;
+        break;
+    case DRM_MODE_FLAG_3D_SIDE_BY_SIDE_FULL:
+        structure = 0x3;
+        break;
+    case DRM_MODE_FLAG_3D_TOP_AND_BOTTOM:
+        structure = 0x6;
+        break;
+    case DRM_MODE_FLAG_3D_SIDE_BY_SIDE_HALF:
+        structure = 0x8;
+        break;
+    default:
+        return 0;
+    }
+
+    payload[0] = 0x03;
+    payload[1] = 0x0c;
+    payload[2] = 0x00;
+    payload[3] = 0x2 << 5;
+    payload[4] = structure << 4;
+    if (structure == 0x6 || structure == 0x8) {
+        payload[5] = 0;
+        return 6;
+    }
+    return 5;
+}
+
 static int
 __nv_drm_connector_atomic_check(struct drm_connector *connector,
                                 nv_drm_atomic_state_base_t *state)
@@ -992,13 +1035,17 @@ __nv_drm_connector_atomic_check(struct drm_connector *connector,
         req_config->modeSetConfig.dithering.mode = mode;
     }
 
-    /* Handle HDMI VSIF metadata changes */
-    req_config->flags.hdmiVsifMetadataChanged =
-        !nv_drm_blobs_equal(nv_old_connector_state->hdmi_vsif_metadata,
-                            nv_new_connector_state->hdmi_vsif_metadata);
-    if (req_config->flags.hdmiVsifMetadataChanged) {
-        if (nv_new_connector_state->hdmi_vsif_metadata &&
-            nv_new_connector_state->hdmi_vsif_metadata->data) {
+    /*
+     * Handle HDMI VSIF metadata changes: a client's NV_HDMI_VSIF_METADATA blob
+     * when there is one, else, on HDMI, the 3D announcement of the mode's 3D
+     * structure (none for a 2D mode).
+     */
+    if (nv_new_connector_state->hdmi_vsif_metadata &&
+        nv_new_connector_state->hdmi_vsif_metadata->data) {
+        req_config->flags.hdmiVsifMetadataChanged =
+            !nv_drm_blobs_equal(nv_old_connector_state->hdmi_vsif_metadata,
+                                nv_new_connector_state->hdmi_vsif_metadata);
+        if (req_config->flags.hdmiVsifMetadataChanged) {
             struct drm_nvidia_hdmi_vsif_metadata* vsif_metadata =
                 (struct drm_nvidia_hdmi_vsif_metadata*)
                 nv_new_connector_state->hdmi_vsif_metadata->data;
@@ -1011,8 +1058,22 @@ __nv_drm_connector_atomic_check(struct drm_connector *connector,
                    payload_size);
             req_config->modeSetConfig.hdmiVsifMetadata.payloadSize =
                 payload_size;
-        } else {
-            req_config->modeSetConfig.hdmiVsifMetadata.payloadSize = 0;
+        }
+    } else {
+        NvU8 payload[NVKMS_HDMI_VSIF_METADATA_MAX_PAYLOAD_SIZE];
+        NvU8 size = 0;
+
+        if (to_nv_connector(connector)->type == NVKMS_CONNECTOR_TYPE_HDMI) {
+            size = nv_drm_stereo_vsif_payload(&crtc_state->mode, payload);
+        }
+        req_config->flags.hdmiVsifMetadataChanged =
+            req_config->modeSetConfig.hdmiVsifMetadata.payloadSize != size ||
+            memcmp(req_config->modeSetConfig.hdmiVsifMetadata.payload,
+                   payload, size) != 0;
+        if (req_config->flags.hdmiVsifMetadataChanged) {
+            memcpy(req_config->modeSetConfig.hdmiVsifMetadata.payload,
+                   payload, size);
+            req_config->modeSetConfig.hdmiVsifMetadata.payloadSize = size;
         }
     }
 
@@ -1174,8 +1235,9 @@ nv_drm_connector_new(struct drm_device *dev,
      * Why this is safe to apply: top-and-bottom and side-by-side (half)
      * ride the SAME link timing as the plain 2D mode (HDMI 1.4), so
      * nv_drm_connector_mode_valid (NVKMS validateDisplayMode) already
-     * accepts them. The 3D announcement is carried with the modeset by
-     * the existing, shipped NV_HDMI_VSIF_METADATA blob property.
+     * accepts them. The 3D announcement goes with the modeset as the HDMI
+     * vendor-specific InfoFrame, built from the mode's 3D structure unless a
+     * client sets its own NV_HDMI_VSIF_METADATA blob.
      *
      * Proven on 615.71.09: SBS-half 1080p60 and TaB 1080p24 drive a 2012
      * Sony KDL-46HX855 into 3D with picture (runs + client:
