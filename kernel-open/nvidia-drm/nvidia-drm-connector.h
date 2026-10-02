@@ -65,6 +65,16 @@ struct nv_drm_connector {
      */
     struct nv_drm_crtc *modeset_permission_crtc;
 
+    /*
+     * Highest bits per component the connected display takes in each colour
+     * format (0: not supported), for "max bpc".
+     */
+    struct {
+        NvU8 rgb444;
+        NvU8 yuv444;
+        NvU8 yuv422;
+    } maxBpc;
+
     struct drm_connector base;
 };
 

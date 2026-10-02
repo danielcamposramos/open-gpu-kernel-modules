@@ -1529,6 +1529,15 @@ static NvBool GetDynamicDisplayInfo(
 
     params->connected = pParamsDpyDynamic->reply.connected;
 
+    if (params->connected) {
+        const NvKmsDpyOutputColorFormatInfo *formats =
+            &pParamsDpyDynamic->reply.supportedOutputColorFormats;
+
+        params->maxBpc.rgb444 = formats->rgb444.maxBpc;
+        params->maxBpc.yuv444 = formats->yuv444.maxBpc;
+        params->maxBpc.yuv422 = formats->yuv422.maxBpc;
+    }
+
     params->maxWidthInPixels  = pParamsDpyDynamic->reply.maxWidthInPixels;
     params->maxHeightInPixels = pParamsDpyDynamic->reply.maxHeightInPixels;
     device->caps.maxWidthInPixels  = params->maxWidthInPixels;
@@ -3462,6 +3471,40 @@ static NvBool NvKmsKapiRequestedModeSetConfigToKms(
         paramsHead->flip.colorimetry.specified = NV_TRUE;
         paramsHead->flip.colorimetry.val = headModeSetConfig->colorimetry;
 
+        /* Output colour; anything not set is NVKMS's choice */
+        if (headModeSetConfig->outputColor.bpc != 0) {
+            paramsHead->colorBpc = headModeSetConfig->outputColor.bpc;
+            paramsHead->colorBpcSpecified = NV_TRUE;
+        }
+        switch (headModeSetConfig->outputColor.range) {
+        case NVKMS_KAPI_OUTPUT_COLOR_RANGE_FULL:
+            paramsHead->colorRange = NV_KMS_DPY_ATTRIBUTE_COLOR_RANGE_FULL;
+            paramsHead->colorRangeSpecified = NV_TRUE;
+            break;
+        case NVKMS_KAPI_OUTPUT_COLOR_RANGE_LIMITED:
+            paramsHead->colorRange = NV_KMS_DPY_ATTRIBUTE_COLOR_RANGE_LIMITED;
+            paramsHead->colorRangeSpecified = NV_TRUE;
+            break;
+        case NVKMS_KAPI_OUTPUT_COLOR_RANGE_DEFAULT:
+            break;
+        }
+        switch (headModeSetConfig->outputColor.format) {
+        case NVKMS_KAPI_OUTPUT_COLOR_FORMAT_RGB:
+            paramsHead->colorFormat = NV_KMS_DPY_ATTRIBUTE_REQUESTED_COLOR_FORMAT_RGB;
+            paramsHead->colorFormatSpecified = NV_TRUE;
+            break;
+        case NVKMS_KAPI_OUTPUT_COLOR_FORMAT_YCBCR444:
+            paramsHead->colorFormat = NV_KMS_DPY_ATTRIBUTE_REQUESTED_COLOR_FORMAT_YCbCr444;
+            paramsHead->colorFormatSpecified = NV_TRUE;
+            break;
+        case NVKMS_KAPI_OUTPUT_COLOR_FORMAT_YCBCR422:
+            paramsHead->colorFormat = NV_KMS_DPY_ATTRIBUTE_REQUESTED_COLOR_FORMAT_YCbCr422;
+            paramsHead->colorFormatSpecified = NV_TRUE;
+            break;
+        case NVKMS_KAPI_OUTPUT_COLOR_FORMAT_DEFAULT:
+            break;
+        }
+
         paramsHead->viewPortSizeIn.width =
             headModeSetConfig->mode.timings.hVisible;
         paramsHead->viewPortSizeIn.height =
@@ -3827,7 +3870,8 @@ static NvBool ApplyModeSetConfig(
         bRequiredModeset =
             headRequestedConfig->flags.activeChanged       ||
             headRequestedConfig->flags.displaysChanged     ||
-            headRequestedConfig->flags.modeChanged;
+            headRequestedConfig->flags.modeChanged         ||
+            headRequestedConfig->flags.outputColorChanged;
 
         if (!device->caps.supportsFlipSynchronizedInfoframes) {
             bRequiredModeset |=

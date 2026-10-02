@@ -180,6 +180,10 @@ __nv_drm_detect_encoder(struct NvKmsKapiDynamicDisplayParams *pDetectParams,
 #endif
 
     if (pDetectParams->connected) {
+        nv_connector->maxBpc.rgb444 = pDetectParams->maxBpc.rgb444;
+        nv_connector->maxBpc.yuv444 = pDetectParams->maxBpc.yuv444;
+        nv_connector->maxBpc.yuv422 = pDetectParams->maxBpc.yuv422;
+
         if (!pDetectParams->overrideEdid && pDetectParams->edid.bufferSize) {
 
             if ((nv_connector->edid = nv_drm_calloc(
@@ -992,6 +996,61 @@ static NvU8 nv_drm_stereo_vsif_payload(const struct drm_display_mode *mode,
     return 5;
 }
 
+/*
+ * The head's output colour from the connector's "max bpc", "Broadcast RGB" and
+ * "color format". "max bpc" is a ceiling: below what the display takes in the
+ * chosen format it becomes the highest depth at or under it, otherwise NVKMS
+ * chooses (up to the display's best and the max_output_color_depth parameter).
+ */
+static void
+nv_drm_connector_output_color(const struct nv_drm_connector *nv_connector,
+                              const struct drm_connector_state *state,
+                              struct NvKmsKapiHeadModeSetConfig *config)
+{
+    NvU8 displayMaxBpc = nv_connector->maxBpc.rgb444;
+    unsigned int ceiling = state->max_requested_bpc;
+
+    config->outputColor.bpc = 0;
+    config->outputColor.range = NVKMS_KAPI_OUTPUT_COLOR_RANGE_DEFAULT;
+    config->outputColor.format = NVKMS_KAPI_OUTPUT_COLOR_FORMAT_DEFAULT;
+
+#if defined(NV_DRM_CONNECTOR_ATTACH_COLOR_FORMAT_PROPERTY_PRESENT)
+    switch (state->color_format) {
+    case DRM_CONNECTOR_COLOR_FORMAT_RGB444:
+        config->outputColor.format = NVKMS_KAPI_OUTPUT_COLOR_FORMAT_RGB;
+        break;
+    case DRM_CONNECTOR_COLOR_FORMAT_YCBCR444:
+        config->outputColor.format = NVKMS_KAPI_OUTPUT_COLOR_FORMAT_YCBCR444;
+        displayMaxBpc = nv_connector->maxBpc.yuv444;
+        break;
+    case DRM_CONNECTOR_COLOR_FORMAT_YCBCR422:
+        config->outputColor.format = NVKMS_KAPI_OUTPUT_COLOR_FORMAT_YCBCR422;
+        displayMaxBpc = nv_connector->maxBpc.yuv422;
+        break;
+    default:
+        break;
+    }
+#endif
+
+#if defined(NV_DRM_CONNECTOR_ATTACH_BROADCAST_RGB_PROPERTY_PRESENT)
+    switch (state->hdmi.broadcast_rgb) {
+    case DRM_HDMI_BROADCAST_RGB_FULL:
+        config->outputColor.range = NVKMS_KAPI_OUTPUT_COLOR_RANGE_FULL;
+        break;
+    case DRM_HDMI_BROADCAST_RGB_LIMITED:
+        config->outputColor.range = NVKMS_KAPI_OUTPUT_COLOR_RANGE_LIMITED;
+        break;
+    default:
+        break;
+    }
+#endif
+
+    if (ceiling != 0 && displayMaxBpc != 0 && ceiling < displayMaxBpc) {
+        config->outputColor.bpc = ceiling >= 12 ? 12 :
+                                  (ceiling >= 10 ? 10 : (ceiling >= 8 ? 8 : 6));
+    }
+}
+
 static int
 __nv_drm_connector_atomic_check(struct drm_connector *connector,
                                 nv_drm_atomic_state_base_t *state)
@@ -1034,6 +1093,23 @@ __nv_drm_connector_atomic_check(struct drm_connector *connector,
         req_config->modeSetConfig.dithering.state = state;
         req_config->modeSetConfig.dithering.mode = mode;
     }
+
+    /* Output colour: depth, range and format */
+    req_config->flags.outputColorChanged =
+        old_connector_state->max_requested_bpc !=
+            new_connector_state->max_requested_bpc
+#if defined(NV_DRM_CONNECTOR_ATTACH_BROADCAST_RGB_PROPERTY_PRESENT)
+        || old_connector_state->hdmi.broadcast_rgb !=
+            new_connector_state->hdmi.broadcast_rgb
+#endif
+#if defined(NV_DRM_CONNECTOR_ATTACH_COLOR_FORMAT_PROPERTY_PRESENT)
+        || old_connector_state->color_format !=
+            new_connector_state->color_format
+#endif
+        ;
+    nv_drm_connector_output_color(to_nv_connector(connector),
+                                  new_connector_state,
+                                  &req_config->modeSetConfig);
 
     /*
      * Handle HDMI VSIF metadata changes: a client's NV_HDMI_VSIF_METADATA blob
@@ -1312,6 +1388,26 @@ nv_drm_connector_new(struct drm_device *dev,
         drm_connector_attach_hdr_output_metadata_property(&nv_connector->base);
     }
 #endif /* defined(NV_DRM_CONNECTOR_ATTACH_HDR_OUTPUT_METADATA_PROPERTY_PRESENT) */
+
+    /*
+     * Output colour, as other drivers offer it: depth ("max bpc"), range
+     * ("Broadcast RGB") and format ("color format")
+     */
+    if (nv_connector->type == NVKMS_CONNECTOR_TYPE_HDMI ||
+        nv_connector->type == NVKMS_CONNECTOR_TYPE_DP) {
+#if defined(NV_DRM_CONNECTOR_ATTACH_MAX_BPC_PROPERTY_PRESENT)
+        drm_connector_attach_max_bpc_property(&nv_connector->base, 8, 16);
+#endif
+#if defined(NV_DRM_CONNECTOR_ATTACH_BROADCAST_RGB_PROPERTY_PRESENT)
+        drm_connector_attach_broadcast_rgb_property(&nv_connector->base);
+#endif
+#if defined(NV_DRM_CONNECTOR_ATTACH_COLOR_FORMAT_PROPERTY_PRESENT)
+        drm_connector_attach_color_format_property(&nv_connector->base,
+            BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444) |
+            BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR444) |
+            BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422));
+#endif
+    }
 
     /* Attach dithering mode property */
     if (nv_dev->nv_connector_dithering_mode_property) {

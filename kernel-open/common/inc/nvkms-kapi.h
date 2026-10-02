@@ -374,6 +374,24 @@ struct NvKmsKapiCursorRequestedConfig {
     } flags;
 };
 
+/*
+ * Output colour range and format for a head, from the DRM connector's
+ * "Broadcast RGB" and "color format" properties; DEFAULT leaves the choice to
+ * NVKMS.
+ */
+enum NvKmsKapiOutputColorRange {
+    NVKMS_KAPI_OUTPUT_COLOR_RANGE_DEFAULT = 0,
+    NVKMS_KAPI_OUTPUT_COLOR_RANGE_FULL,
+    NVKMS_KAPI_OUTPUT_COLOR_RANGE_LIMITED,
+};
+
+enum NvKmsKapiOutputColorFormat {
+    NVKMS_KAPI_OUTPUT_COLOR_FORMAT_DEFAULT = 0,
+    NVKMS_KAPI_OUTPUT_COLOR_FORMAT_RGB,
+    NVKMS_KAPI_OUTPUT_COLOR_FORMAT_YCBCR444,
+    NVKMS_KAPI_OUTPUT_COLOR_FORMAT_YCBCR422,
+};
+
 struct NvKmsKapiHeadModeSetConfig {
     /*
      * DRM distinguishes between the head state "enabled" (the specified
@@ -426,6 +444,17 @@ struct NvKmsKapiHeadModeSetConfig {
     } dithering;
 
     NvBool postcompColorPassthrough;
+
+    /*
+     * Output colour, from the DRM connector's "max bpc", "Broadcast RGB" and
+     * "color format": bits per component (0 for NVKMS's choice, else 6, 8,
+     * 10 or 12), range and format.
+     */
+    struct {
+        NvU8 bpc;
+        enum NvKmsKapiOutputColorRange range;
+        enum NvKmsKapiOutputColorFormat format;
+    } outputColor;
 };
 
 struct NvKmsKapiHeadRequestedConfig {
@@ -441,6 +470,7 @@ struct NvKmsKapiHeadRequestedConfig {
         NvBool ditheringChanged                : 1;
         NvBool hdmiVsifMetadataChanged         : 1;
         NvBool postcompColorPassthroughChanged : 1;
+        NvBool outputColorChanged              : 1;
     } flags;
 
     struct NvKmsKapiCursorRequestedConfig cursorRequestedConfig;
@@ -561,6 +591,16 @@ struct NvKmsKapiDynamicDisplayParams {
 
     /* [IN] Set true to force disconnect status */
     NvBool forceDisconnected;
+
+    /*
+     * [OUT] Highest bits per component the display takes in each colour
+     * format, 0 where the format isn't supported
+     */
+    struct {
+        NvU8 rgb444;
+        NvU8 yuv444;
+        NvU8 yuv422;
+    } maxBpc;
 };
 
 struct NvKmsKapiCreateSurfaceParams {
