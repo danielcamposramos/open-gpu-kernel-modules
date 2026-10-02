@@ -4761,6 +4761,60 @@ compile_test() {
             compile_check_conftest "$CODE" "NV_DRM_CONNECTOR_ATTACH_HDR_OUTPUT_METADATA_PROPERTY_PRESENT" "" "functions"
         ;;
 
+        drm_connector_attach_max_bpc_property)
+            #
+            # Determine if the function
+            # drm_connector_attach_max_bpc_property() is present.
+            #
+            # The generic "max bpc" connector property helper.
+            #
+            CODE="
+            #include <drm/drm_crtc.h>
+            #include <drm/drm_connector.h>
+
+            void conftest_drm_connector_attach_max_bpc_property(void) {
+                drm_connector_attach_max_bpc_property();
+            }"
+
+            compile_check_conftest "$CODE" "NV_DRM_CONNECTOR_ATTACH_MAX_BPC_PROPERTY_PRESENT" "" "functions"
+        ;;
+
+        drm_connector_attach_broadcast_rgb_property)
+            #
+            # Determine if the function
+            # drm_connector_attach_broadcast_rgb_property() is present.
+            #
+            # The generic "Broadcast RGB" connector property helper.
+            #
+            CODE="
+            #include <drm/drm_crtc.h>
+            #include <drm/drm_connector.h>
+
+            void conftest_drm_connector_attach_broadcast_rgb_property(void) {
+                drm_connector_attach_broadcast_rgb_property();
+            }"
+
+            compile_check_conftest "$CODE" "NV_DRM_CONNECTOR_ATTACH_BROADCAST_RGB_PROPERTY_PRESENT" "" "functions"
+        ;;
+
+        drm_connector_attach_color_format_property)
+            #
+            # Determine if the function
+            # drm_connector_attach_color_format_property() is present.
+            #
+            # The generic "color format" connector property helper.
+            #
+            CODE="
+            #include <drm/drm_crtc.h>
+            #include <drm/drm_connector.h>
+
+            void conftest_drm_connector_attach_color_format_property(void) {
+                drm_connector_attach_color_format_property();
+            }"
+
+            compile_check_conftest "$CODE" "NV_DRM_CONNECTOR_ATTACH_COLOR_FORMAT_PROPERTY_PRESENT" "" "functions"
+        ;;
+
         mmu_interval_notifier)
             #
             # Determine if mmu_interval_notifier struct is present or not
