@@ -2560,6 +2560,9 @@ NvBool nvHdmiFrlQueryConfigOneColorFormatAndBpc(
      * nvConstructHwModeTimingsEvo().
      */
     switch(pDpyColor->bpc) {
+        case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_16:
+            videoTransportInfo.bpc = HDMI_BPC16;
+            break;
         case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12:
             videoTransportInfo.bpc = HDMI_BPC12;
             break;
