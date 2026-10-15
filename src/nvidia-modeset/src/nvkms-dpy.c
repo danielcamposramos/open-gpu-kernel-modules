@@ -2908,6 +2908,8 @@ static NvU8 GetVscSdpBitDepth(
 {
     if (format == NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_FORMAT_RGB) {
         switch (bpc) {
+            case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_16:
+                return SDP_VSC_BIT_DEPTH_RGB_16BPC;
             case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12:
                 return SDP_VSC_BIT_DEPTH_RGB_12BPC;
             case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_10:
@@ -2922,6 +2924,8 @@ static NvU8 GetVscSdpBitDepth(
         }
     } else {
         switch (bpc) {
+            case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_16:
+                return SDP_VSC_BIT_DEPTH_YCBCR_16BPC;
             case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12:
                 return SDP_VSC_BIT_DEPTH_YCBCR_12BPC;
             case NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_10:
@@ -3612,7 +3616,10 @@ static enum NvKmsDpyAttributeColorBpcValue GetMaxOutputColorBpc(
     const NvU32 moduleParamBpc = nvkms_max_output_color_bpc();
     const NvU32 maxBpc = NV_MIN(edidBpc, moduleParamBpc);
 
-    if (maxBpc >= 12) {
+    /* EDID 1.4 byte 0x14 bits 6:4 declare 6, 8, 10, 12, 14 or 16 bpc. */
+    if (maxBpc >= 16) {
+        return NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_16;
+    } else if (maxBpc >= 12) {
         return NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12;
     } else if (maxBpc >= 10) {
         return NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_10;
@@ -3637,7 +3644,13 @@ static enum NvKmsDpyAttributeColorBpcValue GetYuv422MaxBpc(
 
     if (pDpyEvo->parsedEdid.info.version >= NVT_EDID_VER_1_4) {
         if (pDpyEvo->parsedEdid.info.u.feature_ver_1_4_digital.support_ycrcb_422) {
-            return GetMaxOutputColorBpc(&pDpyEvo->parsedEdid.info);
+            /*
+             * The 4:2:2 pixel depths stop at 24 bits per pixel (12 bpc):
+             * there is no 32_422 head depth and HDMI carries 4:2:2 in a
+             * 12-bit container.
+             */
+            return NV_MIN(GetMaxOutputColorBpc(&pDpyEvo->parsedEdid.info),
+                          NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12);
         }
     } else {
         nvAssert(!nvConnectorUsesDPLib(pDpyEvo->pConnectorEvo));
@@ -3781,6 +3794,24 @@ NvKmsDpyOutputColorFormatInfo nvDpyGetOutputColorFormatInfo(
                     NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_UNKNOWN) {
                     colorFormatsInfo.yuv444.maxBpc =
                         NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_8;
+                }
+
+                /*
+                 * 16 BPC through an active DP-to-HDMI adapter needs the
+                 * HDMI side to declare 48-bit Deep Colour (DC_48bit in the
+                 * HDMI VSDB); otherwise stop at 12 BPC.
+                 */
+                if (!info->hdmiLlcInfo.dc_48_bit) {
+                    if (colorFormatsInfo.rgb444.maxBpc ==
+                        NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_16) {
+                        colorFormatsInfo.rgb444.maxBpc =
+                            NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12;
+                    }
+                    if (colorFormatsInfo.yuv444.maxBpc ==
+                        NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_16) {
+                        colorFormatsInfo.yuv444.maxBpc =
+                            NV_KMS_DPY_ATTRIBUTE_CURRENT_COLOR_BPC_12;
+                    }
                 }
             }
         } else {
